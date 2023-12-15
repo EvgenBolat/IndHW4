@@ -64,8 +64,6 @@ void* TakeOutGood(void* args){
     int count = *(int*)args;
     for (size_t i = 0; i < count; i++)
     {
-        //запрещаем доступ к файлу для записи
-        sem_wait(&semaphore1);
         std::cout<<"Иванов в процессе выноса товара со склада..." << std::endl;
         fileForWrite << "Иванов в процессе выноса товара со склада..." <<'\n';
         sleep(timeToTake(range)); //делаем вид, что он выносит товар какое-то время через метод sleep
@@ -74,7 +72,6 @@ void* TakeOutGood(void* args){
         std::cout<<"Иванов принёс со склада в кучу товар стоимостью: "<< prod.GetCost() <<" руб.\nВсего предметов в куче, принесённых Иваном: "<<CurrProdroductions.size() << std::endl;
         fileForWrite << "Иванов принёс со склада в кучу товар стоимостью: "<< prod.GetCost() <<" руб.\nВсего предметов в куче, принесённых Иваном: "<<CurrProdroductions.size() << '\n';
         sem_post(&semaphore2);//разрешаем Петрову перенос, так как куча уже не пустая, и может даже накапливаться
-        sem_post(&semaphore1); //даём доступ к файлу
     }
     return nullptr;
 }
@@ -83,7 +80,7 @@ void* CarryGood(void* args){
     int count = *(int*)args;
     for (size_t i = 0; i < count; i++)
     {
-        sem_wait(&semaphore2); // по аналогии закрываем доступ к файлу
+        sem_wait(&semaphore2); // ожидаем, когда куча не перестанет быть пустой (семофор позволяет отображать потоку, сколько раз он может обратиться к вектору дальше по коду, благодаря связи с функцией выше
         Production currProd = CurrProdroductions.back(); //берём товар
         CurrProdroductions.pop_back(); //изымаем имущество из кучи Ивана
         std::cout<<"Петров в процессе переноса товара из кучи в машину\nВсего предметов в куче после изъятия одного предмета, принесённых Иваном: "<<CurrProdroductions.size()<< std::endl;
@@ -92,7 +89,7 @@ void* CarryGood(void* args){
         productionsInTheCar.push_back(currProd); //добавляем принесённый товар к остальным
         std::cout<<"Петров перетащил товар стоимостью "<< (productionsInTheCar[productionsInTheCar.size() - 1]).GetCost() << " руб. в машину" << std::endl;
         fileForWrite << "Петров перетащил товар стоимостью "<< (productionsInTheCar[productionsInTheCar.size() - 1]).GetCost() << " руб. в машину" << '\n';
-        sem_post(&semaphore3); //разрешаем Нечепоруку считать и ввод файла
+        sem_post(&semaphore3); //разрешаем Нечепоруку считать
     }
     return nullptr;
 }
@@ -165,7 +162,6 @@ int main(int argc, char *argv[]) {
     pthread_t Ivanov;
     pthread_t Petrov;
     pthread_t Necheporuck;
-    sem_init(&semaphore1, 0, 1);
     sem_init(&semaphore2, 0, 0);
     sem_init(&semaphore3, 0, 0);
     std::cout<<"Операция началась!\n";
@@ -178,7 +174,6 @@ int main(int argc, char *argv[]) {
     pthread_join(Petrov, NULL);
     pthread_join(Necheporuck, NULL);
 
-    sem_destroy(&semaphore1);
     sem_destroy(&semaphore2);
     sem_destroy(&semaphore3);
     fileForWrite.close();
